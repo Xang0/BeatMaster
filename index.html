@@ -7,15 +7,17 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <!-- Overlay de início: tela modal que cobre o jogo até o usuário clicar em "INICIAR" -->
     <div id="start-overlay" class="overlay active">
         <div class="overlay-content">
             <h1>O Som do Sucesso</h1>
-            <p>Clique no disco freneticamente para gerar Streams. Compre equipamentos para alavancar sua base de fãs.</p>
-            <p class="warning-text">Cuidado com os custos de locação de estúdio pesados no fim da jornada, mantenha o caixa sempre preenchido e conquiste 1 Milhão de Streams para assinar com a Gravadora Maior!</p>
+            <p>Clique no disco freneticamente para gerar Streams...</p>
+            <p class="warning-text">Cuidado com os custos de locação...</p>
             <button id="btn-start" class="btn-primary">INICIAR CARREIRA MUSICAL</button>
         </div>
     </div>
 
+    <!-- Cabeçalho: título do jogo e botões de salvar/resetar -->
     <header class="game-header">
         <div class="brand">Beat Master: O Estúdio</div>
         <div class="controls-wrapper">
@@ -24,25 +26,29 @@
         </div>
     </header>
 
+    <!-- Layout principal com duas colunas: área de clique (esquerda) e loja (direita) -->
     <main class="game-layout">
         <section class="click-dashboard">
+            <!-- Contadores: streams totais e produção passiva por segundo -->
             <div class="counters">
                 <h2 id="total-streams" class="counter-primary">0</h2>
                 <span class="counter-label">STREAMS TOTAIS DA SUA CARREIRA</span>
-                
                 <h3 id="pps-rate" class="counter-secondary">+0.0</h3>
                 <span class="counter-label">STREAMS POR SEGUNDO PASSIVOS</span>
             </div>
 
+            <!-- Área clicável principal (disco de vinil) -->
             <div id="click-zone" class="vinyl-record unselectable">
                 <div class="record-center"></div>
             </div>
 
+            <!-- Painel de mensagens de status (vitória/derrota/dicas) -->
             <div id="status-panel" class="status-panel">
                 <p id="system-message">O estúdio de garagem aguarda a primeira batida...</p>
             </div>
         </section>
 
+        <!-- Loja de upgrades: lista de equipamentos gerada dinamicamente pelo JavaScript -->
         <aside class="upgrade-store">
             <div class="store-header">
                 <h3>🛍️ Loja de Equipamentos</h3>

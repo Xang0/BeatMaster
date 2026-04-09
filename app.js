@@ -4,15 +4,23 @@
  */
 
 // 1. Árvore da Máquina de Estado de Retenção Absoluta 
+// Define o estado global do jogo, contendo todos os dados mutáveis
 let state = {
-    streams: 0,
-    pps: 0, // Streams (Passivo) Por Segundo
-    expenses: 0, // Custo fixo passivo que instiga falência [23, 31]
-    clickValue: 1,
-    isGameOver: false,
-    hasWon: false,
+    streams: 0,                // Quantidade atual de streams (moeda do jogo)
+    pps: 0,                   // Streams passivos por segundo (produção bruta)
+    expenses: 0,              // Custo fixo passivo por segundo (ex.: aluguel de estúdio)
+    clickValue: 1,            // Quantidade de streams ganhas por clique
+    isGameOver: false,        // Flag de falência (game over)
+    hasWon: false,            // Flag de vitória (atingiu a meta)
     
-    // Modelagem de Dados Baseados na Escala Exponencial c = c0 * r^n 
+    // Upgrades disponíveis na loja, cada um com:
+    // name: nome do upgrade
+    // baseCost: custo inicial
+    // currentCost: custo atual (dinâmico)
+    // ppsAdd: aumento de produção por segundo por unidade
+    // costAdd: aumento de despesa fixa por segundo por unidade (custo de manutenção)
+    // count: quantidade comprada
+    // rate: fator de multiplicação do custo a cada compra (exponencial)
     upgrades: [
         { name: "Microfone Condensador", baseCost: 10, currentCost: 10, ppsAdd: 0.1, costAdd: 0, count: 0, rate: 1.15 },
         { name: "Software de Produção", baseCost: 100, currentCost: 100, ppsAdd: 1, costAdd: 0, count: 0, rate: 1.15 },
@@ -23,73 +31,80 @@ let state = {
 };
 
 // Marcos Lógicos Base de Limite [24]
-const VICTORY_GOAL = 1000000;
-let lastFrameTime = 0;
-let saveIntervalId;
+const VICTORY_GOAL = 1000000;   // Meta de streams para vencer o jogo (1 milhão)
+let lastFrameTime = 0;          // Armazena o timestamp do último frame para cálculo de delta time
+let saveIntervalId;             // ID do intervalo de salvamento automático
 
 // Referenciamento do DOM em Constantes Aceleradas (Evita pesquisa na árvore repetidamente)
-const domStreams = document.getElementById('total-streams');
-const domPPS = document.getElementById('pps-rate');
-const domClickZone = document.getElementById('click-zone');
-const domUpgradeList = document.getElementById('upgrade-list');
-const domStatus = document.getElementById('system-message');
-const domOverlay = document.getElementById('start-overlay');
+const domStreams = document.getElementById('total-streams');      // Elemento que exibe total de streams
+const domPPS = document.getElementById('pps-rate');               // Elemento que exibe produção líquida por segundo
+const domClickZone = document.getElementById('click-zone');       // Área clicável principal
+const domUpgradeList = document.getElementById('upgrade-list');   // Lista de upgrades (container)
+const domStatus = document.getElementById('system-message');       // Mensagens de status (vitória/derrota)
+const domOverlay = document.getElementById('start-overlay');       // Tela de início (overlay)
 
 // Engenharia do Sub-Módulo de Áudio 
 // Arquivos estáticos locais; O navegador falhará graciosamente se não encontrados
-const sfxClick = new Audio('assets/kick-drum.mp3');
-const sfxBuy = new Audio('assets/cash-register.mp3');
+const sfxClick = new Audio('assets/kick-drum.mp3');      // Som de clique
+const sfxBuy = new Audio('assets/cash-register.mp3');    // Som de compra
 
 // 2. Controladores de Engajamento e Mecanismos Básicos
 function initGame() {
-    loadProgress(); // Tenta recuperar a memória em base morta do LocalStorage 
-    recalculateMetrics(); // Rebalança todos os custos e produção na inicialização segura
-    renderStore(); // Expõe os itens atualizados no menu
-    updateCounters(); // Pintura inicial 
+    loadProgress();                // Tenta carregar progresso salvo no localStorage
+    recalculateMetrics();          // Recalcula produção e despesas totais
+    renderStore();                 // Renderiza a loja com upgrades atualizados
+    updateCounters();              // Atualiza a interface com os valores atuais
 
     // Alinhamento de ciclo nativo desacoplado da fila de macros
-    lastFrameTime = performance.now();
-    requestAnimationFrame(mainGameLoop);
+    lastFrameTime = performance.now();   // Marca o instante inicial para delta time
+    requestAnimationFrame(mainGameLoop); // Inicia o loop principal do jogo
 
     // Sistema Síncrono Intervalar Preventivo de Corrupção (A cada 10s) [33, 35]
-    saveIntervalId = setInterval(saveProgress, 10000);
+    saveIntervalId = setInterval(saveProgress, 10000); // Salva automaticamente a cada 10 segundos
 }
 
 // Interação principal originada da fenda do usuário do clique na tela principal
 domClickZone.addEventListener('mousedown', () => {
-    if(state.isGameOver || state.hasWon) return; // Nega acesso em suspensão narrativa
+    // Se o jogo já acabou ou foi vencido, o clique não tem efeito
+    if(state.isGameOver || state.hasWon) return;
     
+    // Incrementa streams com o valor do clique (clickValue)
     state.streams += state.clickValue;
     
-    // Anulação de Cursor do Buffer: Essencial para Sobreposições ininterruptas 
+    // Toca o som de clique; reseta o tempo para permitir sobreposição rápida
     sfxClick.currentTime = 0; 
     sfxClick.play().catch(e => console.warn("Interação de áudio contida")); 
     
-    updateCounters();
+    updateCounters();  // Atualiza a interface após o clique
 });
 
 // Resolução de Conflitos e Gatilho da Política Antibloqueio de Automação [44, 45]
 document.getElementById('btn-start').addEventListener('click', () => {
-    domOverlay.classList.remove('active');
+    domOverlay.classList.remove('active');  // Remove a tela de início
     // A ativação manual em contexto realimenta e aprova canais globais na página 
-    initGame(); 
+    initGame();  // Inicia o jogo propriamente dito
 });
 
 // 3. Mecanismos Transacionais e Econômicos 
 window.purchaseUpgrade = function(index) {
+    // Impede compra se o jogo acabou ou foi vencido
     if(state.isGameOver || state.hasWon) return;
 
     let item = state.upgrades[index];
+    // Verifica se o jogador tem streams suficientes para pagar o custo atual
     if (state.streams >= item.currentCost) {
-        state.streams -= item.currentCost;
-        item.count++;
+        state.streams -= item.currentCost;  // Deduz o custo
+        item.count++;                       // Aumenta a quantidade do upgrade
         
         // C_n = C_0 * r^n (Arredondamento imperativo de inflação financeira para valores limpos) [14]
+        // Recalcula o custo atual com base na fórmula exponencial: baseCost * (rate ^ count)
         item.currentCost = Math.floor(item.baseCost * Math.pow(item.rate, item.count));
         
+        // Toca som de compra
         sfxBuy.currentTime = 0;
         sfxBuy.play().catch(e=>e);
 
+        // Recalcula produção/despesas, re-renderiza a loja e atualiza contadores
         recalculateMetrics();
         renderStore();
         updateCounters();
@@ -100,33 +115,36 @@ function recalculateMetrics() {
     let rawPPS = 0;
     let rawExpenses = 0;
 
+    // Soma a produção e as despesas de cada upgrade, multiplicando pela quantidade comprada
     state.upgrades.forEach(item => {
         rawPPS += (item.count * item.ppsAdd);
         rawExpenses += (item.count * item.costAdd);
     });
 
+    // Atualiza o estado global
     state.pps = rawPPS;
     state.expenses = rawExpenses;
 }
 
 // 4. O Coração Assíncrono da Execução Paralela (Temporalização Indep. da Máquina) 
 function mainGameLoop(timestamp) {
+    // Se o jogo acabou ou foi vencido, para de processar o loop
     if(state.isGameOver || state.hasWon) return;
 
     // Cálculo exato de decaimento em base segundos decorridos reais (Delta) 
-    const deltaSeconds = (timestamp - lastFrameTime) / 1000;
-    lastFrameTime = timestamp;
+    const deltaSeconds = (timestamp - lastFrameTime) / 1000;  // Tempo decorrido em segundos desde o último frame
+    lastFrameTime = timestamp;  // Atualiza o timestamp para o próximo frame
 
     if (deltaSeconds > 0) {
-        let netIncome = state.pps - state.expenses;
-        state.streams += (netIncome * deltaSeconds);
+        let netIncome = state.pps - state.expenses;  // Renda líquida por segundo (produção - despesas)
+        state.streams += (netIncome * deltaSeconds); // Adiciona o ganho proporcional ao delta de tempo
     }
 
-    evaluateWinLossBoundaries(); // Sonda barreiras na matriz global [27]
-    updateCounters();
+    evaluateWinLossBoundaries(); // Verifica condições de vitória ou derrota
+    updateCounters();            // Atualiza a interface
 
     // Invoca auto-chamada de encadeamento no término do processamento do quadro em tela 
-    requestAnimationFrame(mainGameLoop); 
+    requestAnimationFrame(mainGameLoop);  // Agenda o próximo frame
 }
 
 // 5. Avaliação Condicional Lógica Fria (Vitória e Derrota) [23, 24, 31]
@@ -136,15 +154,15 @@ function evaluateWinLossBoundaries() {
         state.streams = 0; // Previne o exibicionismo do negativo feio na UI gráfica
         state.isGameOver = true;
         domStatus.innerHTML = "<span style='color:#e74c3c'>FALÊNCIA! Os custos de locação arruinaram sua carreira. Jogo encerrado.</span>";
-        clearInterval(saveIntervalId);
+        clearInterval(saveIntervalId);  // Interrompe o salvamento automático
         return;
     }
 
     // VITÓRIA: Obtenção cumulativa da marca fundamental estipulada pela premissa [24]
-    if (state.streams >= VICTORY_GOAL &&!state.hasWon) {
+    if (state.streams >= VICTORY_GOAL && !state.hasWon) {
         state.hasWon = true;
         domStatus.innerHTML = "<span style='color:#00d26a'>MÁXIMO ALCANCE! Sua música virou hit global e a Maior Gravadora assumiu seu selo!</span>";
-        saveProgress();
+        saveProgress();  // Salva o estado de vitória
     }
 }
 
@@ -153,12 +171,13 @@ function updateCounters() {
     // Math.floor para truncar decimais que crescem linearmente pela adição temporal 
     domStreams.innerText = Math.floor(state.streams).toLocaleString('pt-BR');
     
-    let net = state.pps - state.expenses;
-    domPPS.innerText = `${net >= 0? '+' : ''}${net.toFixed(1)}/seg`;
-    if(net < 0) domPPS.style.color = "#e74c3c";
-    else domPPS.style.color = "white";
+    let net = state.pps - state.expenses;  // Produção líquida
+    domPPS.innerText = `${net >= 0? '+' : ''}${net.toFixed(1)}/seg`;  // Exibe com sinal (+ ou -)
+    if(net < 0) domPPS.style.color = "#e74c3c";  // Se negativo, texto vermelho
+    else domPPS.style.color = "white";            // Caso contrário, branco
 
     // Reatividade de Bloqueio Botões visuais do painel 
+    // Desabilita botões de compra se o jogador não tiver streams suficientes para o custo atual
     const btns = document.querySelectorAll('.btn-buy');
     btns.forEach((btn, index) => {
         btn.disabled = state.streams < state.upgrades[index].currentCost;
@@ -167,7 +186,9 @@ function updateCounters() {
 
 function renderStore() {
     domUpgradeList.innerHTML = ''; // Limpeza brutal e reestruturação da fenda da tabela DOM
+    // Para cada upgrade, cria um elemento <li> com informações e botão de compra
     state.upgrades.forEach((item, index) => {
+        // Exibe o custo fixo adicional (se houver) em vermelho
         let costPenaltyStr = item.costAdd > 0? ` <span style="color:#e74c3c">(-${item.costAdd} custo fixo/seg)</span>` : '';
         const li = document.createElement('li');
         li.className = 'upgrade-item';
@@ -186,7 +207,7 @@ function renderStore() {
 
 // 7. Modulação Crucial de Persistência em Memória Rígida 
 function saveProgress() {
-    if(state.isGameOver) return; // Nega preservação da podridão falida
+    if(state.isGameOver) return; // Nega preservação da podridão falida (não salva se faliu)
     try {
         // Objeto em Cascata aninhada colapsado perfeitamente na string JSON 
         localStorage.setItem('beatMasterGameSavedState', JSON.stringify(state));
@@ -200,7 +221,7 @@ function loadProgress() {
         const memoryString = localStorage.getItem('beatMasterGameSavedState');
         if (memoryString) {
             let parsedState = JSON.parse(memoryString);
-            // Previne mesclagem fatal forçando preenchimento ordenado
+            // Previne mesclagem fatal forçando preenchimento ordenado (só carrega se não for game over)
             if(!parsedState.isGameOver) state = parsedState; 
         }
     } catch (e) {
@@ -209,7 +230,13 @@ function loadProgress() {
 }
 
 // 8. Reinicialização Contratual
-document.getElementById('btn-save').addEventListener('click', () => { saveProgress(); alert("Jogo salvo com sucesso!"); });
+// Botão "Salvar Jogo" – salva manualmente e exibe alerta
+document.getElementById('btn-save').addEventListener('click', () => { 
+    saveProgress(); 
+    alert("Jogo salvo com sucesso!"); 
+});
+
+// Botão "Resetar Jogo" – limpa todo o progresso
 document.getElementById('btn-reset').addEventListener('click', () => {
     if(confirm("Deseja expurgar toda a carreira fonográfica? Isso é irremediável!")) {
         // 1. Remove os dados salvos fisicamente do navegador
