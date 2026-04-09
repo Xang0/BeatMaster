@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beat Master: Produtor Incremental</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="start-overlay" class="overlay active">
+        <div class="overlay-content">
+            <h1>O Som do Sucesso</h1>
+            <p>Clique no disco freneticamente para gerar Streams. Compre equipamentos para alavancar sua base de fãs.</p>
+            <p class="warning-text">Cuidado com os custos de locação de estúdio pesados no fim da jornada, mantenha o caixa sempre preenchido e conquiste 1 Milhão de Streams para assinar com a Gravadora Maior!</p>
+            <button id="btn-start" class="btn-primary">INICIAR CARREIRA MUSICAL</button>
+        </div>
+    </div>
+
+    <header class="game-header">
+        <div class="brand">Beat Master: O Estúdio</div>
+        <div class="controls-wrapper">
+            <button id="btn-save" class="btn-utility">💾 Salvar Jogo</button>
+            <button id="btn-reset" class="btn-danger">🗑️ Apagar Dados</button>
+        </div>
+    </header>
+
+    <main class="game-layout">
+        <section class="click-dashboard">
+            <div class="counters">
+                <h2 id="total-streams" class="counter-primary">0</h2>
+                <span class="counter-label">STREAMS TOTAIS DA SUA CARREIRA</span>
+                
+                <h3 id="pps-rate" class="counter-secondary">+0.0</h3>
+                <span class="counter-label">STREAMS POR SEGUNDO PASSIVOS</span>
+            </div>
+
+            <div id="click-zone" class="vinyl-record unselectable">
+                <div class="record-center"></div>
+            </div>
+
+            <div id="status-panel" class="status-panel">
+                <p id="system-message">O estúdio de garagem aguarda a primeira batida...</p>
+            </div>
+        </section>
+
+        <aside class="upgrade-store">
+            <div class="store-header">
+                <h3>🛍️ Loja de Equipamentos</h3>
+                <p>Automatize a engenharia musical</p>
+            </div>
+            <ul id="upgrade-list" class="item-list"></ul>
+        </aside>
+    </main>
+
+    <script src="app.js?v=2"></script>
+</body>
+</html>
